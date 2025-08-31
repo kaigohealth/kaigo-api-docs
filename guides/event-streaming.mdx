@@ -1,0 +1,362 @@
+---
+title: Event Streaming with Pub/Sub
+description: Real-time call event streaming for quality evaluation and analytics
+icon: 'stream'
+---
+
+# Event Streaming Architecture
+
+The Kaigo Platform streams fine-grained call events through Google Cloud Pub/Sub for quality evaluation and analytics. This high-priority system provides real-time insights into call performance, agent behavior, and patient interactions.
+
+## Overview
+
+All events follow the [Cloud Events v1.0 specification](https://cloudevents.io/) and are published to topic-specific Pub/Sub channels.
+
+### Topic Structure
+
+Topics follow the naming pattern:
+```
+kaigo-calls-analytics-{environment}-{event_type}
+```
+
+Example topics:
+- `kaigo-calls-analytics-prod-asr-segments`
+- `kaigo-calls-analytics-prod-agent-turns`
+- `kaigo-calls-analytics-prod-vad-events`
+- `kaigo-calls-analytics-prod-errors`
+- `kaigo-calls-analytics-prod-metrics`
+
+## Event Types
+
+### ASR Segment Events
+
+Automatic Speech Recognition segments with confidence scoring.
+
+```json
+{
+  "specversion": "1.0",
+  "type": "com.kaigo.call.asr_segment",
+  "source": "ambi-voice-agent",
+  "id": "evt_2024_uuid",
+  "time": "2024-12-20T10:32:45.123Z",
+  "subject": "call/twilio_call_sid_123",
+  "data": {
+    "call_sid": "twilio_call_sid_123",
+    "patient_id": "uuid-string",
+    "segment_index": 1,
+    "start_ms": 1000,
+    "end_ms": 3500,
+    "text": "My blood pressure this morning was 135 over 85",
+    "confidence": 0.95,
+    "is_final": true,
+    "speaker": "user",
+    "language": "en-US"
+  }
+}
+```
+
+### Voice Activity Detection (VAD) Events
+
+Track speech start, end, and silence detection.
+
+```json
+{
+  "specversion": "1.0",
+  "type": "com.kaigo.call.vad_event",
+  "source": "ambi-voice-agent",
+  "id": "evt_2024_uuid",
+  "time": "2024-12-20T10:32:46.456Z",
+  "subject": "call/twilio_call_sid_123",
+  "data": {
+    "call_sid": "twilio_call_sid_123",
+    "patient_id": "uuid-string",
+    "event": "speech_start",
+    "timestamp_ms": 1234567890,
+    "duration_ms": 0,
+    "energy_level": 0.75,
+    "speaker": "user"
+  }
+}
+```
+
+### Agent Turn Events
+
+Complete conversation turns with performance metrics.
+
+```json
+{
+  "specversion": "1.0",
+  "type": "com.kaigo.call.agent_turn",
+  "source": "ambi-voice-agent",
+  "id": "evt_2024_uuid",
+  "time": "2024-12-20T10:32:50.789Z",
+  "subject": "call/twilio_call_sid_123",
+  "data": {
+    "call_sid": "twilio_call_sid_123",
+    "patient_id": "uuid-string",
+    "turn_index": 1,
+    "user_text": "My blood pressure this morning was 135 over 85",
+    "agent_text": "Thank you for that reading. 135 over 85 is slightly elevated. Are you experiencing any symptoms?",
+    "started_at": "2024-12-20T10:32:45.123Z",
+    "ended_at": "2024-12-20T10:32:50.456Z",
+    "llm_model": "claude-opus-4-1",
+    "llm_latency_ms": 320,
+    "llm_tokens": {
+      "prompt": 245,
+      "completion": 89
+    },
+    "tts_model": "elevenlabs-v2",
+    "tts_latency_ms": 180,
+    "tool_calls": [
+      {
+        "tool": "get_patient_medical",
+        "latency_ms": 45,
+        "success": true
+      }
+    ]
+  }
+}
+```
+
+### Interruption Events
+
+User barge-in and interruption handling.
+
+```json
+{
+  "specversion": "1.0",
+  "type": "com.kaigo.call.interruption",
+  "source": "ambi-voice-agent",
+  "id": "evt_2024_uuid",
+  "time": "2024-12-20T10:32:47.789Z",
+  "subject": "call/twilio_call_sid_123",
+  "data": {
+    "call_sid": "twilio_call_sid_123",
+    "patient_id": "uuid-string",
+    "interruption_type": "barge_in",
+    "timestamp_ms": 7800,
+    "agent_text_interrupted": "Are you experiencing any symp--",
+    "user_started_speaking_ms": 7750,
+    "resume_strategy": "acknowledge_and_continue"
+  }
+}
+```
+
+### Error Events
+
+Track errors with severity and recovery strategies.
+
+```json
+{
+  "specversion": "1.0",
+  "type": "com.kaigo.call.error",
+  "source": "ambi-voice-agent",
+  "id": "evt_2024_uuid",
+  "time": "2024-12-20T10:33:15.123Z",
+  "subject": "call/twilio_call_sid_123",
+  "data": {
+    "call_sid": "twilio_call_sid_123",
+    "patient_id": "uuid-string",
+    "error_code": "ASR_TIMEOUT",
+    "error_message": "No speech detected for 10 seconds",
+    "severity": "warning",
+    "recovery_action": "prompt_user",
+    "context": {
+      "last_interaction_ms": 10000,
+      "retry_count": 1
+    }
+  }
+}
+```
+
+### Call Metrics Events
+
+Periodic metrics published every 30 seconds.
+
+```json
+{
+  "specversion": "1.0",
+  "type": "com.kaigo.call.metrics",
+  "source": "ambi-voice-agent",
+  "id": "evt_2024_uuid",
+  "time": "2024-12-20T10:33:00.000Z",
+  "subject": "call/twilio_call_sid_123",
+  "data": {
+    "call_sid": "twilio_call_sid_123",
+    "patient_id": "uuid-string",
+    "interval_start": "2024-12-20T10:32:30.000Z",
+    "interval_end": "2024-12-20T10:33:00.000Z",
+    "metrics": {
+      "total_duration_ms": 30000,
+      "turns_in_interval": 3,
+      "avg_response_time_ms": 420,
+      "interruption_count": 1,
+      "error_count": 0,
+      "asr_confidence_avg": 0.92,
+      "silence_duration_ms": 2500
+    }
+  }
+}
+```
+
+## Message Attributes
+
+All messages include attributes for filtering:
+
+| Attribute | Type | Description |
+|-----------|------|-------------|
+| `call_sid` | string | Twilio call identifier |
+| `patient_id` | string | Patient UUID |
+| `event_type` | string | Type of event |
+| `timestamp` | string | ISO 8601 timestamp |
+| `environment` | string | prod/staging/dev |
+
+## Subscriptions
+
+Configure subscriptions based on your consumption needs:
+
+### Real-time Monitoring Dashboard
+- **Subscription**: `kaigo-calls-monitoring-sub`
+- **Filter**: High-priority events (errors, interruptions)
+- **Ack deadline**: 10 seconds
+
+### Data Lake Storage
+- **Subscription**: `kaigo-calls-storage-sub`
+- **Filter**: No filter (receives all events)
+- **Ack deadline**: 60 seconds
+
+### Analytics Pipeline
+- **Subscription**: `kaigo-calls-analytics-sub`
+- **Filter**: Completed turns and metrics
+- **Ack deadline**: 30 seconds
+
+### Alerting System
+- **Subscription**: `kaigo-calls-alerts-sub`
+- **Filter**: `attributes.severity="critical"`
+- **Ack deadline**: 10 seconds
+
+## Pub/Sub Configuration
+
+### Topic Settings
+- **Message retention**: 7 days
+- **Message ordering**: Enabled (using `call_sid` as ordering key)
+
+### Retry Policy
+- **Exponential backoff**: min 10s, max 600s
+- **Dead letter topic**: `kaigo-calls-analytics-dlq`
+- **Max delivery attempts**: 5
+
+## Implementation Example
+
+### Python Publisher
+
+```python
+from google.cloud import pubsub_v1
+from google.cloud.pubsub_v1.futures import Future
+import json
+from datetime import datetime
+import uuid
+
+class KaigoEventPublisher:
+    def __init__(self, project_id: str, environment: str = "prod"):
+        self.publisher = pubsub_v1.PublisherClient()
+        self.project_id = project_id
+        self.environment = environment
+        
+    def publish_event(self, event_type: str, call_sid: str, 
+                      patient_id: str, data: dict) -> Future:
+        """Publish a single event to the appropriate topic"""
+        
+        topic_name = f"kaigo-calls-analytics-{self.environment}-{event_type}"
+        topic_path = self.publisher.topic_path(self.project_id, topic_name)
+        
+        # Build Cloud Events message
+        message = {
+            "specversion": "1.0",
+            "type": f"com.kaigo.call.{event_type}",
+            "source": "ambi-voice-agent",
+            "id": str(uuid.uuid4()),
+            "time": datetime.utcnow().isoformat() + "Z",
+            "datacontenttype": "application/json",
+            "subject": f"call/{call_sid}",
+            "data": {
+                "call_sid": call_sid,
+                "patient_id": patient_id,
+                **data
+            }
+        }
+        
+        # Publish with attributes for filtering
+        future = self.publisher.publish(
+            topic_path,
+            data=json.dumps(message).encode("utf-8"),
+            call_sid=call_sid,
+            patient_id=patient_id,
+            event_type=event_type,
+            timestamp=message["time"],
+            environment=self.environment
+        )
+        
+        return future
+```
+
+## IAM Permissions
+
+Service account permissions required for Ambi:
+
+```yaml
+# Service account permissions
+roles:
+  - roles/pubsub.publisher  # Publish messages
+  
+# Specific topic permissions
+bindings:
+  - role: roles/pubsub.publisher
+    members:
+      - serviceAccount:ambi-voice-agent@project.iam.gserviceaccount.com
+    resource: "projects/PROJECT_ID/topics/kaigo-calls-analytics-*"
+```
+
+## Monitoring & Observability
+
+### Key Metrics to Track
+- Publish success rate
+- Message age (oldest unacked message)
+- Subscription backlog
+- Dead letter queue size
+- Publishing latency
+
+### Alerts to Configure
+- Publish failures > 1% for 5 minutes
+- Subscription backlog > 1000 messages
+- Dead letter queue > 100 messages
+- No messages received for 10 minutes during business hours
+
+## Security Considerations
+
+<Note>
+All events containing PHI are encrypted in transit and at rest. Access to Pub/Sub topics and subscriptions is controlled through IAM policies and requires proper authentication.
+</Note>
+
+## Performance Optimization
+
+<Tip>
+Use message ordering with `call_sid` as the ordering key to ensure events for the same call are processed in sequence. This is crucial for maintaining conversation context and accurate analytics.
+</Tip>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Set up Subscriptions" icon="gear" href="/guides/pubsub-setup">
+    Configure your Pub/Sub subscriptions to start receiving events
+  </Card>
+  <Card title="Build Analytics Pipeline" icon="chart-line" href="/guides/analytics">
+    Process streaming events for real-time insights
+  </Card>
+  <Card title="Monitor Performance" icon="gauge" href="/guides/monitoring">
+    Set up dashboards and alerts for event streaming
+  </Card>
+  <Card title="Handle Errors" icon="triangle-exclamation" href="/guides/error-handling">
+    Implement error recovery and dead letter processing
+  </Card>
+</CardGroup>

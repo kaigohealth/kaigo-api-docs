@@ -60,6 +60,7 @@
           {
             "group": "Integration Guides",
             "pages": [
+              "guides/event-streaming",
               "guides/webhooks",
               "guides/error-handling",
               "guides/rate-limiting"
@@ -74,7 +75,8 @@
           {
             "group": "Overview",
             "pages": [
-              "api-reference/introduction"
+              "api-reference/introduction",
+              "api-reference/event-schemas"
             ]
           },
           {
@@ -156,6 +158,35 @@
               {
                 "title": "Create Escalation",
                 "openapi": "post /api/v1/admin/escalations"
+              }
+            ]
+          },
+          {
+            "group": "Event Streaming (Pub/Sub)",
+            "pages": [
+              {
+                "title": "ASR Segment Event",
+                "openapi": "post /events/asr-segment"
+              },
+              {
+                "title": "Voice Activity Detection",
+                "openapi": "post /events/vad"
+              },
+              {
+                "title": "Agent Turn Event",
+                "openapi": "post /events/agent-turn"
+              },
+              {
+                "title": "Interruption Event",
+                "openapi": "post /events/interruption"
+              },
+              {
+                "title": "Error Event",
+                "openapi": "post /events/error"
+              },
+              {
+                "title": "Call Metrics",
+                "openapi": "post /events/metrics"
               }
             ]
           }

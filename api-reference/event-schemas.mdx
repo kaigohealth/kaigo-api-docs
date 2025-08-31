@@ -1,0 +1,357 @@
+---
+title: Event Streaming Schemas
+description: Complete schema reference for Pub/Sub event streaming
+icon: 'database'
+---
+
+# Event Streaming Schema Reference
+
+This page provides a complete reference for all event schemas used in the Kaigo Platform's Pub/Sub event streaming system.
+
+## Cloud Events Envelope
+
+All events follow the [Cloud Events v1.0 specification](https://cloudevents.io/). Every message includes this standard envelope:
+
+<ResponseField name="specversion" type="string" required>
+  Cloud Events specification version (always "1.0")
+</ResponseField>
+
+<ResponseField name="type" type="string" required>
+  Event type identifier following pattern: `com.kaigo.call.{event_type}`
+</ResponseField>
+
+<ResponseField name="source" type="string" required>
+  Event source system (always "ambi-voice-agent")
+</ResponseField>
+
+<ResponseField name="id" type="string" required>
+  Unique event identifier (UUID format)
+</ResponseField>
+
+<ResponseField name="time" type="string" required>
+  Event timestamp in ISO 8601 format
+</ResponseField>
+
+<ResponseField name="datacontenttype" type="string" required>
+  Content type (always "application/json")
+</ResponseField>
+
+<ResponseField name="subject" type="string" required>
+  Call subject identifier following pattern: `call/{call_sid}`
+</ResponseField>
+
+<ResponseField name="data" type="object" required>
+  Event-specific data payload (see individual event types below)
+</ResponseField>
+
+## ASR Segment Event
+
+Automatic Speech Recognition segment with transcription and confidence scoring.
+
+### Event Type
+`com.kaigo.call.asr_segment`
+
+### Data Fields
+
+<ResponseField name="call_sid" type="string" required>
+  Twilio call identifier
+</ResponseField>
+
+<ResponseField name="patient_id" type="string" required>
+  Patient UUID
+</ResponseField>
+
+<ResponseField name="segment_index" type="integer" required>
+  Sequential index of the segment within the call
+</ResponseField>
+
+<ResponseField name="start_ms" type="integer" required>
+  Start time in milliseconds from call start
+</ResponseField>
+
+<ResponseField name="end_ms" type="integer" required>
+  End time in milliseconds from call start
+</ResponseField>
+
+<ResponseField name="text" type="string" required>
+  Transcribed text content
+</ResponseField>
+
+<ResponseField name="confidence" type="float" required>
+  ASR confidence score (0.0 to 1.0)
+</ResponseField>
+
+<ResponseField name="is_final" type="boolean" required>
+  Whether this is a final or interim result
+</ResponseField>
+
+<ResponseField name="speaker" type="string" required>
+  Speaker identifier: "user" or "agent"
+</ResponseField>
+
+<ResponseField name="language" type="string" required>
+  Language code (e.g., "en-US")
+</ResponseField>
+
+## VAD Event
+
+Voice Activity Detection event for speech tracking.
+
+### Event Type
+`com.kaigo.call.vad_event`
+
+### Data Fields
+
+<ResponseField name="call_sid" type="string" required>
+  Twilio call identifier
+</ResponseField>
+
+<ResponseField name="patient_id" type="string" required>
+  Patient UUID
+</ResponseField>
+
+<ResponseField name="event" type="string" required>
+  VAD event type: "speech_start", "speech_end", or "silence_detected"
+</ResponseField>
+
+<ResponseField name="timestamp_ms" type="integer" required>
+  Event timestamp in milliseconds
+</ResponseField>
+
+<ResponseField name="duration_ms" type="integer" required>
+  Duration of the event in milliseconds
+</ResponseField>
+
+<ResponseField name="energy_level" type="float" required>
+  Audio energy level (0.0 to 1.0)
+</ResponseField>
+
+<ResponseField name="speaker" type="string" required>
+  Speaker identifier: "user" or "agent"
+</ResponseField>
+
+## Agent Turn Event
+
+Complete conversation turn with performance metrics.
+
+### Event Type
+`com.kaigo.call.agent_turn`
+
+### Data Fields
+
+<ResponseField name="call_sid" type="string" required>
+  Twilio call identifier
+</ResponseField>
+
+<ResponseField name="patient_id" type="string" required>
+  Patient UUID
+</ResponseField>
+
+<ResponseField name="turn_index" type="integer" required>
+  Sequential index of the conversation turn
+</ResponseField>
+
+<ResponseField name="user_text" type="string" required>
+  User's utterance text
+</ResponseField>
+
+<ResponseField name="agent_text" type="string" required>
+  Agent's response text
+</ResponseField>
+
+<ResponseField name="started_at" type="string" required>
+  Turn start timestamp (ISO 8601)
+</ResponseField>
+
+<ResponseField name="ended_at" type="string" required>
+  Turn end timestamp (ISO 8601)
+</ResponseField>
+
+<ResponseField name="llm_model" type="string" required>
+  LLM model used (e.g., "claude-opus-4-1")
+</ResponseField>
+
+<ResponseField name="llm_latency_ms" type="integer" required>
+  LLM response time in milliseconds
+</ResponseField>
+
+<ResponseField name="llm_tokens" type="object" required>
+  <Expandable title="Token usage">
+    <ResponseField name="prompt" type="integer" required>
+      Number of prompt tokens
+    </ResponseField>
+    <ResponseField name="completion" type="integer" required>
+      Number of completion tokens
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+<ResponseField name="tts_model" type="string" required>
+  TTS model used (e.g., "elevenlabs-v2")
+</ResponseField>
+
+<ResponseField name="tts_latency_ms" type="integer" required>
+  TTS generation time in milliseconds
+</ResponseField>
+
+<ResponseField name="tool_calls" type="array">
+  External API calls made during this turn
+  <Expandable title="Tool call details">
+    <ResponseField name="tool" type="string" required>
+      Tool/API name
+    </ResponseField>
+    <ResponseField name="latency_ms" type="integer" required>
+      API call latency in milliseconds
+    </ResponseField>
+    <ResponseField name="success" type="boolean" required>
+      Whether the API call succeeded
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+## Interruption Event
+
+User interruption/barge-in event tracking.
+
+### Event Type
+`com.kaigo.call.interruption`
+
+### Data Fields
+
+<ResponseField name="call_sid" type="string" required>
+  Twilio call identifier
+</ResponseField>
+
+<ResponseField name="patient_id" type="string" required>
+  Patient UUID
+</ResponseField>
+
+<ResponseField name="interruption_type" type="string" required>
+  Type of interruption: "barge_in", "overlap", or "false_positive"
+</ResponseField>
+
+<ResponseField name="timestamp_ms" type="integer" required>
+  Interruption timestamp in milliseconds
+</ResponseField>
+
+<ResponseField name="agent_text_interrupted" type="string" required>
+  Agent text that was interrupted
+</ResponseField>
+
+<ResponseField name="user_started_speaking_ms" type="integer" required>
+  When user started speaking (milliseconds)
+</ResponseField>
+
+<ResponseField name="resume_strategy" type="string" required>
+  How the agent resumed: "acknowledge_and_continue", "restart", or "skip"
+</ResponseField>
+
+## Error Event
+
+Error tracking with severity and recovery strategies.
+
+### Event Type
+`com.kaigo.call.error`
+
+### Data Fields
+
+<ResponseField name="call_sid" type="string" required>
+  Twilio call identifier
+</ResponseField>
+
+<ResponseField name="patient_id" type="string" required>
+  Patient UUID
+</ResponseField>
+
+<ResponseField name="error_code" type="string" required>
+  Error code: "ASR_TIMEOUT", "TTS_FAILURE", "LLM_ERROR", "API_ERROR", or "NETWORK_ERROR"
+</ResponseField>
+
+<ResponseField name="error_message" type="string" required>
+  Human-readable error message
+</ResponseField>
+
+<ResponseField name="severity" type="string" required>
+  Error severity: "warning", "error", or "critical"
+</ResponseField>
+
+<ResponseField name="recovery_action" type="string" required>
+  Recovery strategy: "retry", "prompt_user", "escalate", or "terminate"
+</ResponseField>
+
+<ResponseField name="context" type="object">
+  Additional error context
+  <Expandable title="Context details">
+    <ResponseField name="last_interaction_ms" type="integer">
+      Time since last interaction in milliseconds
+    </ResponseField>
+    <ResponseField name="retry_count" type="integer">
+      Number of retry attempts
+    </ResponseField>
+    <ResponseField name="error_details" type="string">
+      Additional error details
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+## Call Metrics Event
+
+Periodic call metrics published every 30 seconds.
+
+### Event Type
+`com.kaigo.call.metrics`
+
+### Data Fields
+
+<ResponseField name="call_sid" type="string" required>
+  Twilio call identifier
+</ResponseField>
+
+<ResponseField name="patient_id" type="string" required>
+  Patient UUID
+</ResponseField>
+
+<ResponseField name="interval_start" type="string" required>
+  Metrics interval start (ISO 8601)
+</ResponseField>
+
+<ResponseField name="interval_end" type="string" required>
+  Metrics interval end (ISO 8601)
+</ResponseField>
+
+<ResponseField name="metrics" type="object" required>
+  <Expandable title="Metrics details">
+    <ResponseField name="total_duration_ms" type="integer" required>
+      Total duration of interval in milliseconds
+    </ResponseField>
+    <ResponseField name="turns_in_interval" type="integer" required>
+      Number of conversation turns
+    </ResponseField>
+    <ResponseField name="avg_response_time_ms" type="integer" required>
+      Average agent response time
+    </ResponseField>
+    <ResponseField name="interruption_count" type="integer" required>
+      Number of interruptions
+    </ResponseField>
+    <ResponseField name="error_count" type="integer" required>
+      Number of errors
+    </ResponseField>
+    <ResponseField name="asr_confidence_avg" type="float" required>
+      Average ASR confidence score
+    </ResponseField>
+    <ResponseField name="silence_duration_ms" type="integer" required>
+      Total silence duration in milliseconds
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+## Related Resources
+
+<CardGroup cols={2}>
+  <Card title="Event Streaming Guide" icon="stream" href="/guides/event-streaming">
+    Learn how to implement event streaming
+  </Card>
+  <Card title="OpenAPI Specification" icon="code" href="/api-reference/introduction">
+    View the complete API specification
+  </Card>
+</CardGroup>
