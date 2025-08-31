@@ -9,6 +9,15 @@
   },
   "favicon": "/favicon.svg",
   "openapi": "kaigo-openapi-spec.yaml",
+  "custom": {
+    "css": "/custom.css"
+  },
+  "modeToggle": {
+    "default": "light"
+  },
+  "topbarCtaButton": {
+    "style": "roundedRectangle"
+  },
   "api": {
     "baseUrl": "https://api.kaigo.com",
     "auth": {
@@ -175,7 +184,8 @@
   },
   "logo": {
     "light": "/logo/light.svg",
-    "dark": "/logo/dark.svg"
+    "dark": "/logo/dark.svg",
+    "href": "https://kaigo.com"
   },
   "navbar": {
     "links": [

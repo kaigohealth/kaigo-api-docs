@@ -1,0 +1,27 @@
+/* Custom CSS for Kaigo API Documentation */
+
+/* Make the logo bigger */
+.logo img,
+.dark .logo img,
+[class*="logo"] img,
+nav img[alt*="logo"],
+header img {
+  height: 48px !important;
+  max-height: 48px !important;
+  width: auto !important;
+}
+
+/* Ensure logo container can accommodate larger logo */
+.logo,
+[class*="logo"],
+nav a:first-child,
+header > div:first-child {
+  height: auto !important;
+  min-height: 48px !important;
+}
+
+/* Adjust navbar height if needed */
+nav,
+header {
+  min-height: 64px !important;
+}
