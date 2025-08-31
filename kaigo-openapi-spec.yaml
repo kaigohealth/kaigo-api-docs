@@ -1,0 +1,1264 @@
+openapi: 3.0.3
+info:
+  title: Kaigo Platform Healthcare API
+  description: |
+    API endpoints for the Kaigo Platform to support Ambi voice agents for healthcare communication scenarios 
+    including Remote Patient Monitoring (RPM), appointment reminders, follow-ups, and other patient outreach programs.
+    
+    ## HIPAA Security Requirements
+    This API implements strict HIPAA security measures including:
+    - Two-factor patient verification
+    - Session-based PHI access
+    - Comprehensive audit logging
+    - Phone number verification is NOT sufficient for PHI access
+  version: 1.0.0
+  contact:
+    name: Kaigo Platform Support
+    email: support@kaigo.com
+
+servers:
+  - url: https://api.kaigo.com
+    description: Production server
+  - url: https://staging-api.kaigo.com
+    description: Staging server
+
+security:
+  - BearerAuth: []
+  - ServiceAuth: []
+
+paths:
+  /api/v1/admin/calls/{call_id}/context:
+    get:
+      summary: Get Call Context
+      description: Retrieve the context of a call before making it
+      tags:
+        - Calls
+      parameters:
+        - $ref: '#/components/parameters/CallIdParam'
+      responses:
+        '200':
+          description: Call context retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CallContext'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/v1/admin/patients/initialize-verification:
+    post:
+      summary: Initialize Patient Verification
+      description: Initialize patient verification process. Returns ONLY verification challenges, NO PHI.
+      tags:
+        - Patient Verification
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InitializeVerificationRequest'
+      responses:
+        '200':
+          description: Verification session initialized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InitializeVerificationResponse'
+        '429':
+          description: Too many verification attempts
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VerificationLockedError'
+
+  /api/v1/admin/patients/verify-identity:
+    post:
+      summary: Verify Patient Identity
+      description: Validate patient identity and return a session token for PHI access
+      tags:
+        - Patient Verification
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VerifyIdentityRequest'
+      responses:
+        '200':
+          description: Verification successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VerifyIdentityResponse'
+        '410':
+          description: Verification failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VerificationFailedError'
+
+  /api/v1/admin/patients/{patient_id}/profile:
+    get:
+      summary: Get Patient Profile
+      description: Returns basic demographics and contact information only - NO medical data
+      tags:
+        - Patient Data
+      security:
+        - BearerAuth: []
+        - PatientSession: []
+      parameters:
+        - $ref: '#/components/parameters/PatientIdParam'
+        - name: fields
+          in: query
+          description: Comma-separated list of fields to return
+          schema:
+            type: string
+            enum: [demographics, contacts, preferences, insurance]
+            default: demographics
+      responses:
+        '200':
+          description: Patient profile retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PatientProfile'
+        '401':
+          $ref: '#/components/responses/InvalidSession'
+        '403':
+          $ref: '#/components/responses/SessionMismatch'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '410':
+          $ref: '#/components/responses/SessionExpired'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+
+  /api/v1/admin/patients/{patient_id}/medical:
+    get:
+      summary: Get Patient Medical Information
+      description: Returns ONLY medical/clinical information - no demographics
+      tags:
+        - Patient Data
+      security:
+        - BearerAuth: []
+        - PatientSession: []
+      parameters:
+        - $ref: '#/components/parameters/PatientIdParam'
+        - name: sections
+          in: query
+          description: Comma-separated list of sections to return
+          schema:
+            type: string
+            enum: [conditions, medications, allergies, vitals_targets, care_instructions]
+      responses:
+        '200':
+          description: Medical information retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MedicalInformation'
+        '401':
+          $ref: '#/components/responses/InvalidSession'
+        '403':
+          $ref: '#/components/responses/SessionMismatch'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '410':
+          $ref: '#/components/responses/SessionExpired'
+
+  /api/v1/admin/patients/{patient_id}/visits:
+    get:
+      summary: Get Recent Visits
+      description: Returns historical visit data for context during calls
+      tags:
+        - Patient Data
+      security:
+        - BearerAuth: []
+        - PatientSession: []
+      parameters:
+        - $ref: '#/components/parameters/PatientIdParam'
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 5
+            maximum: 20
+        - name: expand
+          in: query
+          description: Additional data to include
+          schema:
+            type: string
+            enum: [procedures, lab_results, vital_signs, provider_notes]
+        - name: visit_type
+          in: query
+          schema:
+            type: string
+            enum: [follow_up, routine, emergency, procedure]
+        - name: date_from
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: date_to
+          in: query
+          schema:
+            type: string
+            format: date
+      responses:
+        '200':
+          description: Visits retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VisitsResponse'
+
+  /api/v1/admin/calls/results:
+    post:
+      summary: Save Call Results
+      description: Save the results of any call type. Uses call_sid as idempotency key.
+      tags:
+        - Calls
+      security:
+        - BearerAuth: []
+        - PatientSession: []
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CallResultsRequest'
+      responses:
+        '201':
+          description: Call results saved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CallResultsResponse'
+
+  /api/v1/admin/sessions/{session_token}:
+    delete:
+      summary: Revoke Session Token
+      description: Immediately revoke a session token if needed during a call
+      tags:
+        - Session Management
+      parameters:
+        - name: session_token
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Session revoked successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SessionRevokedResponse'
+
+  /api/v1/admin/patients/{patient_id}/schedules:
+    get:
+      summary: Get Patient Schedules
+      description: Retrieve patient schedules for various call types
+      tags:
+        - Scheduling
+      security:
+        - BearerAuth: []
+        - PatientSession: []
+      parameters:
+        - $ref: '#/components/parameters/PatientIdParam'
+        - name: active_only
+          in: query
+          schema:
+            type: boolean
+            default: true
+        - name: schedule_type
+          in: query
+          schema:
+            type: string
+            enum: [RPM_DAILY, APPOINTMENT, MEDICATION_REMINDER]
+      responses:
+        '200':
+          description: Schedules retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/PatientSchedule'
+
+  /api/v1/admin/escalations:
+    post:
+      summary: Create Escalation
+      description: Create a medical escalation for critical situations
+      tags:
+        - Escalations
+      security:
+        - BearerAuth: []
+        - PatientSession: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateEscalationRequest'
+      responses:
+        '201':
+          description: Escalation created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EscalationResponse'
+
+  /api/v1/admin/calls/reschedule:
+    post:
+      summary: Reschedule Callback
+      description: Reschedule a callback for any call type
+      tags:
+        - Calls
+      security:
+        - BearerAuth: []
+        - PatientSession: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RescheduleCallbackRequest'
+      responses:
+        '201':
+          description: Callback rescheduled successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RescheduleCallbackResponse'
+
+  /api/v1/admin/calls/scheduled:
+    get:
+      summary: Get Scheduled Calls
+      description: Retrieve scheduled calls of all types
+      tags:
+        - Calls
+      parameters:
+        - name: date
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: time_window
+          in: query
+          schema:
+            type: string
+            example: "09:00-12:00"
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [pending, completed, failed, rescheduled]
+        - name: call_type
+          in: query
+          schema:
+            type: string
+            enum: [RPM, APPOINTMENT_REMINDER, FOLLOW_UP]
+        - name: priority
+          in: query
+          schema:
+            type: string
+            enum: [routine, urgent, critical]
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 50
+      responses:
+        '200':
+          description: Scheduled calls retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ScheduledCallsResponse'
+
+  /api/v1/admin/calls/{call_id}/status:
+    patch:
+      summary: Update Call Status
+      description: Update the status of a call
+      tags:
+        - Calls
+      parameters:
+        - $ref: '#/components/parameters/CallIdParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateCallStatusRequest'
+      responses:
+        '200':
+          description: Call status updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UpdateCallStatusResponse'
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      description: Service authentication token
+    
+    ServiceAuth:
+      type: apiKey
+      in: header
+      name: X-Service-ID
+      description: Service identifier
+    
+    PatientSession:
+      type: apiKey
+      in: header
+      name: X-Patient-Session
+      description: Patient session token from verification
+
+  parameters:
+    PatientIdParam:
+      name: patient_id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    
+    CallIdParam:
+      name: call_id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    
+    IdempotencyKey:
+      name: X-Idempotency-Key
+      in: header
+      schema:
+        type: string
+      description: Idempotency key for request
+
+  schemas:
+    CallContext:
+      type: object
+      properties:
+        call_id:
+          type: string
+          format: uuid
+        call_type:
+          type: string
+          enum: [RPM_OUTBOUND, RPM_INBOUND, APPOINTMENT_REMINDER, FOLLOW_UP]
+        call_purpose:
+          type: string
+        patient_phone:
+          type: string
+          pattern: '^\+[1-9]\d{1,14}$'
+        scheduled_time:
+          type: string
+          format: date-time
+        data_to_collect:
+          type: array
+          items:
+            type: string
+        special_instructions:
+          type: string
+        language_preference:
+          type: string
+        previous_attempts:
+          type: integer
+        max_retry_attempts:
+          type: integer
+
+    InitializeVerificationRequest:
+      type: object
+      required:
+        - phone_number
+        - call_sid
+        - call_type
+        - call_direction
+      properties:
+        phone_number:
+          type: string
+          pattern: '^\+[1-9]\d{1,14}$'
+        call_sid:
+          type: string
+        call_type:
+          type: string
+          enum: [RPM_OUTBOUND, RPM_INBOUND, APPOINTMENT_REMINDER, FOLLOW_UP]
+        call_direction:
+          type: string
+          enum: [outbound, inbound]
+        scheduled_call_id:
+          type: string
+          format: uuid
+
+    InitializeVerificationResponse:
+      type: object
+      properties:
+        verification_session_id:
+          type: string
+          format: uuid
+        patient_found:
+          type: boolean
+        verification_required:
+          type: array
+          items:
+            type: string
+            enum: [name, date_of_birth]
+        expires_at:
+          type: string
+          format: date-time
+        attempts_remaining:
+          type: integer
+
+    VerificationLockedError:
+      type: object
+      properties:
+        error:
+          type: string
+          enum: [verification_locked]
+        message:
+          type: string
+        attempts_remaining:
+          type: integer
+        locked_until:
+          type: string
+          format: date-time
+        verification_session_id:
+          type: string
+          format: uuid
+
+    VerifyIdentityRequest:
+      type: object
+      required:
+        - verification_session_id
+        - verification_data
+      properties:
+        verification_session_id:
+          type: string
+          format: uuid
+        verification_data:
+          type: object
+          properties:
+            name:
+              type: string
+            date_of_birth:
+              type: string
+              format: date
+
+    VerifyIdentityResponse:
+      type: object
+      properties:
+        verified:
+          type: boolean
+        patient_session_token:
+          type: string
+        patient_id:
+          type: string
+          format: uuid
+        expires_at:
+          type: string
+          format: date-time
+        access_level:
+          type: string
+          enum: [voice_call]
+
+    VerificationFailedError:
+      type: object
+      properties:
+        error:
+          type: string
+          enum: [verification_failed]
+        message:
+          type: string
+        attempts_remaining:
+          type: integer
+        next_allowed_at:
+          type: string
+          format: date-time
+
+    PatientProfile:
+      type: object
+      properties:
+        patient_id:
+          type: string
+          format: uuid
+        demographics:
+          type: object
+          properties:
+            first_name:
+              type: string
+            last_name:
+              type: string
+            preferred_name:
+              type: string
+            date_of_birth:
+              type: string
+              format: date
+            age:
+              type: integer
+            gender:
+              type: string
+            status:
+              type: string
+              enum: [ACTIVE, INACTIVE]
+            timezone:
+              type: string
+            language_preference:
+              type: string
+            medical_record_number:
+              type: string
+        contacts:
+          type: object
+          properties:
+            primary_physician:
+              type: object
+              properties:
+                name:
+                  type: string
+                title:
+                  type: string
+                specialty:
+                  type: string
+                phone:
+                  type: string
+                practice:
+                  type: string
+            emergency_contact:
+              type: object
+              properties:
+                name:
+                  type: string
+                relationship:
+                  type: string
+                phone:
+                  type: string
+
+    MedicalInformation:
+      type: object
+      properties:
+        patient_id:
+          type: string
+          format: uuid
+        medications:
+          type: array
+          items:
+            type: object
+            properties:
+              name:
+                type: string
+              dosage:
+                type: string
+              frequency:
+                type: string
+              prescribing_physician:
+                type: string
+              start_date:
+                type: string
+                format: date
+              instructions:
+                type: string
+        conditions:
+          type: array
+          items:
+            type: object
+            properties:
+              name:
+                type: string
+              icd10_code:
+                type: string
+              diagnosed_date:
+                type: string
+                format: date
+              status:
+                type: string
+                enum: [active, resolved]
+              severity:
+                type: string
+                enum: [mild, moderate, severe, controlled]
+        vitals_targets:
+          type: object
+          properties:
+            blood_pressure:
+              type: object
+              properties:
+                systolic_min:
+                  type: integer
+                systolic_max:
+                  type: integer
+                diastolic_min:
+                  type: integer
+                diastolic_max:
+                  type: integer
+                critical_high_systolic:
+                  type: integer
+                critical_high_diastolic:
+                  type: integer
+                frequency:
+                  type: string
+            blood_glucose:
+              type: object
+              properties:
+                fasting_min:
+                  type: integer
+                fasting_max:
+                  type: integer
+                critical_low:
+                  type: integer
+                critical_high:
+                  type: integer
+                frequency:
+                  type: string
+
+    VisitsResponse:
+      type: object
+      properties:
+        patient_id:
+          type: string
+          format: uuid
+        visits:
+          type: array
+          items:
+            type: object
+            properties:
+              visit_id:
+                type: string
+                format: uuid
+              visit_date:
+                type: string
+                format: date-time
+              visit_type:
+                type: string
+                enum: [follow_up, routine, emergency, procedure]
+              provider:
+                type: string
+              location:
+                type: string
+              chief_complaint:
+                type: string
+              diagnosis_codes:
+                type: array
+                items:
+                  type: string
+              procedures:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    procedure_id:
+                      type: string
+                      format: uuid
+                    name:
+                      type: string
+                    cpt_code:
+                      type: string
+                    results:
+                      type: string
+                    reference_range:
+                      type: string
+                    interpretation:
+                      type: string
+              vital_signs:
+                type: object
+                properties:
+                  blood_pressure:
+                    type: string
+                  heart_rate:
+                    type: integer
+                  weight:
+                    type: string
+                  bmi:
+                    type: string
+                  temperature:
+                    type: string
+              provider_notes:
+                type: object
+                properties:
+                  summary:
+                    type: string
+                  plan:
+                    type: string
+                  instructions:
+                    type: string
+              follow_up_required:
+                type: boolean
+              follow_up_date:
+                type: string
+                format: date
+        total_visits:
+          type: integer
+
+    CallResultsRequest:
+      type: object
+      required:
+        - patient_id
+        - call_sid
+        - call_id
+        - call_timestamp
+        - call_type
+        - call_status
+      properties:
+        patient_id:
+          type: string
+          format: uuid
+        call_sid:
+          type: string
+        call_id:
+          type: string
+          format: uuid
+        call_timestamp:
+          type: string
+          format: date-time
+        call_duration_seconds:
+          type: integer
+        call_type:
+          type: string
+        call_status:
+          type: string
+          enum: [COMPLETED, FAILED, PARTIAL]
+        patient_verified:
+          type: boolean
+        vitals_collected:
+          type: object
+          additionalProperties: true
+        symptoms_reported:
+          type: array
+          items:
+            type: string
+        medication_adherence:
+          type: object
+          additionalProperties: true
+        alerts_triggered:
+          type: array
+          items:
+            type: string
+        follow_up_required:
+          type: boolean
+        ai_summary:
+          type: string
+        recording_url:
+          type: string
+          format: uri
+        transcript_url:
+          type: string
+          format: uri
+
+    CallResultsResponse:
+      type: object
+      properties:
+        call_result_id:
+          type: string
+          format: uuid
+        patient_id:
+          type: string
+          format: uuid
+        call_sid:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        status:
+          type: string
+          enum: [created]
+
+    SessionRevokedResponse:
+      type: object
+      properties:
+        session_token:
+          type: string
+        revoked_at:
+          type: string
+          format: date-time
+        reason:
+          type: string
+          enum: [patient_request, suspicious_activity, verification_failure, emergency_disconnect, call_completed]
+        call_sid:
+          type: string
+
+    PatientSchedule:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        patient_id:
+          type: string
+          format: uuid
+        schedule_type:
+          type: string
+          enum: [RPM_DAILY, APPOINTMENT, MEDICATION_REMINDER]
+        preferred_time:
+          type: string
+          format: time
+        earliest_call_time:
+          type: string
+          format: time
+        latest_call_time:
+          type: string
+          format: time
+        timezone:
+          type: string
+        active_days:
+          type: array
+          items:
+            type: integer
+            minimum: 1
+            maximum: 7
+        retry_count:
+          type: integer
+        max_retries_per_day:
+          type: integer
+        retry_intervals:
+          type: array
+          items:
+            type: integer
+        preferred_method:
+          type: string
+          enum: [PHONE, SMS, EMAIL]
+        status:
+          type: string
+          enum: [ACTIVE, INACTIVE, PAUSED]
+        next_scheduled:
+          type: string
+          format: date-time
+        last_successful:
+          type: string
+          format: date-time
+
+    CreateEscalationRequest:
+      type: object
+      required:
+        - patient_id
+        - call_sid
+        - escalation_type
+        - severity
+        - reason
+      properties:
+        patient_id:
+          type: string
+          format: uuid
+        call_sid:
+          type: string
+        escalation_type:
+          type: string
+          enum: [CRITICAL_VITAL, SEVERE_SYMPTOM, EMERGENCY]
+        severity:
+          type: string
+          enum: [low, medium, high, critical]
+        reason:
+          type: string
+        data:
+          type: object
+          properties:
+            vital_values:
+              type: object
+              additionalProperties: true
+            symptoms:
+              type: array
+              items:
+                type: string
+        recommended_action:
+          type: string
+        ai_assessment:
+          type: string
+        notification_targets:
+          type: array
+          items:
+            type: object
+            properties:
+              type:
+                type: string
+              method:
+                type: string
+
+    EscalationResponse:
+      type: object
+      properties:
+        escalation_id:
+          type: string
+          format: uuid
+        case_number:
+          type: string
+        status:
+          type: string
+          enum: [notifications_sent, open, pending]
+        notifications:
+          type: array
+          items:
+            type: object
+            properties:
+              target:
+                type: string
+              method:
+                type: string
+              sent:
+                type: boolean
+              timestamp:
+                type: string
+                format: date-time
+        created_at:
+          type: string
+          format: date-time
+
+    RescheduleCallbackRequest:
+      type: object
+      required:
+        - patient_id
+        - original_call_sid
+        - reschedule_reason
+        - reschedule_type
+      properties:
+        patient_id:
+          type: string
+          format: uuid
+        original_call_sid:
+          type: string
+        reschedule_reason:
+          type: string
+          enum: [post_exercise, post_meal, patient_request]
+        reschedule_type:
+          type: string
+          enum: [short_delay, later_today, tomorrow, custom]
+        preferred_callback_time:
+          type: string
+          format: date-time
+        call_purpose:
+          type: string
+        data_to_collect:
+          type: array
+          items:
+            type: string
+        partial_data:
+          type: object
+          additionalProperties: true
+        auto_callback:
+          type: boolean
+        max_attempts:
+          type: integer
+
+    RescheduleCallbackResponse:
+      type: object
+      properties:
+        reschedule_id:
+          type: string
+          format: uuid
+        scheduled_callback:
+          type: object
+          properties:
+            call_id:
+              type: string
+              format: uuid
+            scheduled_time:
+              type: string
+              format: date-time
+            phone_number:
+              type: string
+            call_purpose:
+              type: string
+            attempt_number:
+              type: integer
+        confirmation:
+          type: string
+
+    ScheduledCallsResponse:
+      type: object
+      properties:
+        scheduled_calls:
+          type: array
+          items:
+            type: object
+            properties:
+              call_id:
+                type: string
+                format: uuid
+              patient_id:
+                type: string
+                format: uuid
+              patient_name:
+                type: string
+              phone_number:
+                type: string
+              scheduled_time:
+                type: string
+                format: date-time
+              call_type:
+                type: string
+              call_purpose:
+                type: string
+              priority:
+                type: string
+                enum: [routine, urgent, critical]
+              data_to_collect:
+                type: array
+                items:
+                  type: string
+              last_successful_call:
+                type: string
+                format: date-time
+              retry_attempt:
+                type: integer
+              special_instructions:
+                type: string
+              language_preference:
+                type: string
+              estimated_duration_minutes:
+                type: integer
+        summary:
+          type: object
+          properties:
+            total_scheduled:
+              type: integer
+            pending:
+              type: integer
+            completed:
+              type: integer
+            time_window:
+              type: string
+            estimated_total_minutes:
+              type: integer
+
+    UpdateCallStatusRequest:
+      type: object
+      required:
+        - status
+        - call_sid
+      properties:
+        status:
+          type: string
+          enum: [initiated, connected, completed, failed, no_answer, busy, rescheduled]
+        call_sid:
+          type: string
+        outcome:
+          type: string
+          enum: [successful, partial, failed, patient_refused, technical_issue]
+        duration_seconds:
+          type: integer
+        attempt_number:
+          type: integer
+        failure_reason:
+          type: string
+          nullable: true
+        next_action:
+          type: string
+          enum: [none, retry_later, escalate, reschedule_tomorrow]
+        notes:
+          type: string
+
+    UpdateCallStatusResponse:
+      type: object
+      properties:
+        call_id:
+          type: string
+          format: uuid
+        status:
+          type: string
+        updated_at:
+          type: string
+          format: date-time
+        next_scheduled:
+          type: string
+          format: date-time
+
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+        message:
+          type: string
+        detail:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+
+  responses:
+    Unauthorized:
+      description: Authentication failed
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    
+    InvalidSession:
+      description: Invalid or missing patient session
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              error:
+                type: string
+                enum: [invalid_session]
+              message:
+                type: string
+    
+    SessionExpired:
+      description: Patient session expired
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              error:
+                type: string
+                enum: [session_expired]
+              message:
+                type: string
+    
+    SessionMismatch:
+      description: Session does not authorize this patient/call
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              error:
+                type: string
+                enum: [session_mismatch]
+              message:
+                type: string
+    
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              error:
+                type: string
+                enum: [not_found]
+              message:
+                type: string
+    
+    RateLimited:
+      description: Too many requests
+      headers:
+        X-RateLimit-Limit:
+          schema:
+            type: integer
+        X-RateLimit-Remaining:
+          schema:
+            type: integer
+        X-RateLimit-Reset:
+          schema:
+            type: integer
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              error:
+                type: string
+                enum: [rate_limited]
+              message:
+                type: string

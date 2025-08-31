@@ -1,68 +1,153 @@
 {
   "$schema": "https://mintlify.com/docs.json",
   "theme": "mint",
-  "name": "Mint Starter Kit",
+  "name": "Kaigo Platform Healthcare API",
   "colors": {
-    "primary": "#16A34A",
-    "light": "#07C983",
-    "dark": "#15803D"
+    "primary": "#0891B2",
+    "light": "#06B6D4",
+    "dark": "#0E7490"
   },
   "favicon": "/favicon.svg",
+  "openapi": "kaigo-openapi-spec.yaml",
+  "api": {
+    "baseUrl": "https://api.kaigo.com",
+    "auth": {
+      "method": "bearer",
+      "name": "Authorization"
+    },
+    "playground": {
+      "mode": "show"
+    },
+    "maintainOrder": true
+  },
   "navigation": {
     "tabs": [
       {
-        "tab": "Guides",
+        "tab": "Documentation",
         "groups": [
           {
-            "group": "Getting started",
+            "group": "Getting Started",
             "pages": [
-              "index",
-              "quickstart",
-              "development"
+              "introduction",
+              "authentication",
+              "quickstart"
             ]
           },
           {
-            "group": "Customization",
+            "group": "Security & Compliance",
             "pages": [
-              "essentials/settings",
-              "essentials/navigation"
+              "guides/hipaa-compliance",
+              "guides/patient-verification"
             ]
           },
           {
-            "group": "Writing content",
+            "group": "Core Concepts",
             "pages": [
-              "essentials/markdown",
-              "essentials/code",
-              "essentials/images",
-              "essentials/reusable-snippets"
+              "guides/call-management",
+              "guides/session-management",
+              "guides/escalation-handling"
             ]
           },
           {
-            "group": "AI tools",
+            "group": "Integration Guides",
             "pages": [
-              "ai-tools/cursor",
-              "ai-tools/claude-code",
-              "ai-tools/windsurf"
+              "guides/webhooks",
+              "guides/error-handling",
+              "guides/rate-limiting"
             ]
           }
         ]
       },
       {
-        "tab": "API reference",
+        "tab": "API Reference",
+        "openapi": "kaigo-openapi-spec.yaml",
         "groups": [
           {
-            "group": "API documentation",
+            "group": "Overview",
             "pages": [
               "api-reference/introduction"
             ]
           },
           {
-            "group": "Endpoint examples",
+            "group": "Calls",
             "pages": [
-              "api-reference/endpoint/get",
-              "api-reference/endpoint/create",
-              "api-reference/endpoint/delete",
-              "api-reference/endpoint/webhook"
+              {
+                "title": "Get Call Context",
+                "openapi": "get /api/v1/admin/calls/{call_id}/context"
+              },
+              {
+                "title": "Save Call Results",
+                "openapi": "post /api/v1/admin/calls/results"
+              },
+              {
+                "title": "Reschedule Callback", 
+                "openapi": "post /api/v1/admin/calls/reschedule"
+              },
+              {
+                "title": "Get Scheduled Calls",
+                "openapi": "get /api/v1/admin/calls/scheduled"
+              },
+              {
+                "title": "Update Call Status",
+                "openapi": "patch /api/v1/admin/calls/{call_id}/status"
+              }
+            ]
+          },
+          {
+            "group": "Patient Verification",
+            "pages": [
+              {
+                "title": "Initialize Verification",
+                "openapi": "post /api/v1/admin/patients/initialize-verification"
+              },
+              {
+                "title": "Verify Identity",
+                "openapi": "post /api/v1/admin/patients/verify-identity"
+              }
+            ]
+          },
+          {
+            "group": "Patient Data",
+            "pages": [
+              {
+                "title": "Get Patient Profile",
+                "openapi": "get /api/v1/admin/patients/{patient_id}/profile"
+              },
+              {
+                "title": "Get Medical Information",
+                "openapi": "get /api/v1/admin/patients/{patient_id}/medical"
+              },
+              {
+                "title": "Get Recent Visits",
+                "openapi": "get /api/v1/admin/patients/{patient_id}/visits"
+              }
+            ]
+          },
+          {
+            "group": "Scheduling",
+            "pages": [
+              {
+                "title": "Get Patient Schedules",
+                "openapi": "get /api/v1/admin/patients/{patient_id}/schedules"
+              }
+            ]
+          },
+          {
+            "group": "Session Management",
+            "pages": [
+              {
+                "title": "Revoke Session Token",
+                "openapi": "delete /api/v1/admin/sessions/{session_token}"
+              }
+            ]
+          },
+          {
+            "group": "Escalations",
+            "pages": [
+              {
+                "title": "Create Escalation",
+                "openapi": "post /api/v1/admin/escalations"
+              }
             ]
           }
         ]

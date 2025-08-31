@@ -1,33 +1,209 @@
 ---
-title: 'Introduction'
-description: 'Example section for showcasing API endpoints'
+title: 'API Reference'
+description: 'Complete reference for the Kaigo Platform Healthcare API endpoints'
 ---
 
+## Overview
+
+The Kaigo Platform Healthcare API provides secure, HIPAA-compliant endpoints for voice agent interactions in healthcare settings. This reference documents all available endpoints, request/response formats, and error codes.
+
 <Note>
-  If you're not looking to build API reference documentation, you can delete
-  this section by removing the api-reference folder.
+  All endpoints are auto-generated from our [OpenAPI specification](/kaigo-openapi-spec.yaml). You can test endpoints directly in the documentation using the API playground.
 </Note>
 
-## Welcome
+## Base URL
 
-There are two ways to build API documentation: [OpenAPI](https://mintlify.com/docs/api-playground/openapi/setup) and [MDX components](https://mintlify.com/docs/api-playground/mdx/configuration). For the starter kit, we are using the following OpenAPI specification.
+<CodeGroup>
 
-<Card
-  title="Plant Store Endpoints"
-  icon="leaf"
-  href="https://github.com/mintlify/starter/blob/main/api-reference/openapi.json"
->
-  View the OpenAPI specification file
-</Card>
+```bash Production
+https://api.kaigo.com
+```
+
+```bash Staging
+https://staging-api.kaigo.com
+```
+
+</CodeGroup>
 
 ## Authentication
 
-All API endpoints are authenticated using Bearer tokens and picked up from the specification file.
+All API requests require authentication. The Kaigo API uses a multi-layered authentication approach:
+
+<ParamField
+  header="Authorization"
+  type="string"
+  placeholder="Bearer your_api_token"
+  required
+>
+  Service-level authentication using bearer token. Required for all API requests.
+</ParamField>
+
+<ParamField
+  header="X-Service-ID"
+  type="string"
+  placeholder="your_service_id"
+>
+  Service identifier for certain endpoints. Contact support for your Service ID.
+</ParamField>
+
+<ParamField
+  header="X-Patient-Session"
+  type="string"
+  placeholder="session_token_from_verification"
+>
+  Patient session token obtained from verification. Required for accessing PHI endpoints.
+</ParamField>
+
+## Endpoint Categories
+
+<CardGroup cols={2}>
+  <Card
+    title="Patient Verification"
+    icon="user-check"
+  >
+    Initialize and complete two-factor patient verification
+  </Card>
+  <Card
+    title="Patient Data"
+    icon="file-medical"
+  >
+    Access patient profiles, medical information, and visit history
+  </Card>
+  <Card
+    title="Call Management"
+    icon="phone"
+  >
+    Manage call context, results, status, and scheduling
+  </Card>
+  <Card
+    title="Scheduling"
+    icon="calendar"
+  >
+    Retrieve and manage patient call schedules
+  </Card>
+  <Card
+    title="Session Management"
+    icon="key"
+  >
+    Manage patient session tokens and access control
+  </Card>
+  <Card
+    title="Escalations"
+    icon="triangle-exclamation"
+  >
+    Create and manage critical medical escalations
+  </Card>
+</CardGroup>
+
+## Response Format
+
+All successful responses follow this structure:
 
 ```json
-"security": [
-  {
-    "bearerAuth": []
+{
+  "data": {
+    // Response data
+  },
+  "meta": {
+    "request_id": "req_123abc",
+    "timestamp": "2024-01-15T10:30:00Z"
   }
-]
+}
 ```
+
+## Error Responses
+
+Error responses include detailed information for debugging:
+
+```json
+{
+  "error": "error_code",
+  "message": "Human-readable error message",
+  "detail": "Additional context about the error",
+  "timestamp": "2024-01-15T10:30:00Z"
+}
+```
+
+### Common Error Codes
+
+| Status | Code | Description |
+|--------|------|-------------|
+| `401` | `unauthorized` | Invalid or missing authentication |
+| `403` | `session_mismatch` | Session doesn't authorize this resource |
+| `404` | `not_found` | Resource not found |
+| `410` | `session_expired` | Patient session has expired |
+| `429` | `rate_limited` | Too many requests |
+
+## Rate Limiting
+
+The API implements intelligent rate limiting to ensure service stability:
+
+| Endpoint Type | Limit | Window |
+|--------------|-------|---------|
+| Verification | 5 attempts | 15 minutes |
+| PHI Access | 100 requests | 1 minute |
+| General API | 1000 requests | 1 minute |
+
+Rate limit headers are included in all responses:
+
+```http
+X-RateLimit-Limit: 100
+X-RateLimit-Remaining: 95
+X-RateLimit-Reset: 1705318200
+```
+
+## Idempotency
+
+For critical operations, use idempotency keys to prevent duplicate actions:
+
+```bash
+curl -X POST https://api.kaigo.com/api/v1/admin/calls/results \
+  -H "X-Idempotency-Key: unique_key_123"
+```
+
+## Pagination
+
+List endpoints support pagination using cursor-based pagination:
+
+```bash
+GET /api/v1/admin/calls/scheduled?limit=50&cursor=eyJpZCI6MTIzfQ
+```
+
+## Webhooks
+
+Configure webhooks to receive real-time updates about:
+- Call completions
+- Escalation triggers
+- Session events
+- Verification attempts
+
+## Testing
+
+Use our staging environment for development and testing:
+
+```bash
+https://staging-api.kaigo.com
+```
+
+<Warning>
+  Never use real patient data in the staging environment. Use our provided test data sets.
+</Warning>
+
+## Support
+
+<CardGroup cols={2}>
+  <Card
+    title="API Status"
+    icon="signal"
+    href="https://status.kaigo.com"
+  >
+    Check current API status
+  </Card>
+  <Card
+    title="Contact Support"
+    icon="headset"
+    href="mailto:api-support@kaigo.com"
+  >
+    Get help from our API team
+  </Card>
+</CardGroup>
