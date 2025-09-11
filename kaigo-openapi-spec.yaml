@@ -27,7 +27,7 @@ security:
   - ServiceAuth: []
 
 paths:
-  /api/v1/admin/calls/{call_id}/context:
+  /api/v1/ambios/calls/{call_id}/context:
     get:
       summary: Get Call Context
       description: Retrieve the context of a call before making it
@@ -47,7 +47,7 @@ paths:
         '404':
           $ref: '#/components/responses/NotFound'
 
-  /api/v1/admin/patients/initialize-verification:
+  /api/v1/ambios/patients/initialize-verification:
     post:
       summary: Initialize Patient Verification
       description: Initialize patient verification process. Returns ONLY verification challenges, NO PHI.
@@ -73,7 +73,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/VerificationLockedError'
 
-  /api/v1/admin/patients/verify-identity:
+  /api/v1/ambios/patients/verify-identity:
     post:
       summary: Verify Patient Identity
       description: Validate patient identity and return a session token for PHI access
@@ -99,7 +99,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/VerificationFailedError'
 
-  /api/v1/admin/patients/{patient_id}/profile:
+  /api/v1/ambios/patients/{patient_id}/profile:
     get:
       summary: Get Patient Profile
       description: Returns basic demographics and contact information only - NO medical data
@@ -135,7 +135,7 @@ paths:
         '429':
           $ref: '#/components/responses/RateLimited'
 
-  /api/v1/admin/patients/{patient_id}/medical:
+  /api/v1/ambios/patients/{patient_id}/medical:
     get:
       summary: Get Patient Medical Information
       description: Returns ONLY medical/clinical information - no demographics
@@ -168,7 +168,7 @@ paths:
         '410':
           $ref: '#/components/responses/SessionExpired'
 
-  /api/v1/admin/patients/{patient_id}/visits:
+  /api/v1/ambios/patients/{patient_id}/visits:
     get:
       summary: Get Recent Visits
       description: Returns historical visit data for context during calls
@@ -214,7 +214,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/VisitsResponse'
 
-  /api/v1/admin/calls/results:
+  /api/v1/ambios/calls/results:
     post:
       summary: Save Call Results
       description: Save the results of any call type. Uses call_sid as idempotency key.
@@ -239,7 +239,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/CallResultsResponse'
 
-  /api/v1/admin/sessions/{session_token}:
+  /api/v1/ambios/sessions/{session_token}:
     delete:
       summary: Revoke Session Token
       description: Immediately revoke a session token if needed during a call
@@ -259,7 +259,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/SessionRevokedResponse'
 
-  /api/v1/admin/patients/{patient_id}/schedules:
+  /api/v1/ambios/patients/{patient_id}/schedules:
     get:
       summary: Get Patient Schedules
       description: Retrieve patient schedules for various call types
@@ -290,7 +290,7 @@ paths:
                 items:
                   $ref: '#/components/schemas/PatientSchedule'
 
-  /api/v1/admin/escalations:
+  /api/v1/ambios/escalations:
     post:
       summary: Create Escalation
       description: Create a medical escalation for critical situations
@@ -313,7 +313,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/EscalationResponse'
 
-  /api/v1/admin/calls/reschedule:
+  /api/v1/ambios/calls/reschedule:
     post:
       summary: Reschedule Callback
       description: Reschedule a callback for any call type
@@ -336,7 +336,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/RescheduleCallbackResponse'
 
-  /api/v1/admin/calls/scheduled:
+  /api/v1/ambios/calls/scheduled:
     get:
       summary: Get Scheduled Calls
       description: Retrieve scheduled calls of all types
@@ -381,7 +381,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ScheduledCallsResponse'
 
-  /api/v1/admin/calls/{call_id}/status:
+  /api/v1/ambios/calls/{call_id}/status:
     patch:
       summary: Update Call Status
       description: Update the status of a call
@@ -403,143 +403,86 @@ paths:
               schema:
                 $ref: '#/components/schemas/UpdateCallStatusResponse'
 
-  # ================================================
-  # Event Streaming Webhooks (Pub/Sub Documentation)
-  # ================================================
-  # These are not REST endpoints - they document Pub/Sub event schemas
-  # Events are published to Google Cloud Pub/Sub topics by Ambi voice agents
-  
-  /events/asr-segment:
+  /api/v1/ambios/calls/{call_id}/transcript/stream:
     post:
-      summary: ASR Segment Event (Pub/Sub)
-      description: |
-        **This is a Pub/Sub event, not a REST endpoint**
-        
-        Published to topic: `kaigo-calls-analytics-{environment}-asr-segments`
-        
-        Automatic Speech Recognition segments with transcription and confidence scoring.
-        Events are published in real-time as speech is processed during calls.
+      summary: Stream Transcript Segment
+      description: Stream real-time transcript segments during active call (Demo - No Auth Required)
       tags:
-        - Event Streaming
+        - Calls
+      parameters:
+        - $ref: '#/components/parameters/CallIdParam'
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/ASRSegmentEvent'
+              $ref: '#/components/schemas/TranscriptStreamRequest'
       responses:
-        '200':
-          description: Event published to Pub/Sub topic
+        '201':
+          description: Transcript segment recorded successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TranscriptStreamResponse'
+        '400':
+          description: Bad request
+        '404':
+          $ref: '#/components/responses/NotFound'
 
-  /events/vad:
+  /api/v1/ambios/calls/{call_id}/transcript/summary:
     post:
-      summary: Voice Activity Detection Event (Pub/Sub)
-      description: |
-        **This is a Pub/Sub event, not a REST endpoint**
-        
-        Published to topic: `kaigo-calls-analytics-{environment}-vad-events`
-        
-        Voice Activity Detection events for speech start, end, and silence detection.
-        Used for tracking conversation flow and detecting pauses.
+      summary: Save Call Transcript Summary
+      description: Save complete transcript with AI-generated nurse notes and clinical summary (Demo - No Auth Required)
       tags:
-        - Event Streaming
+        - Calls
+      parameters:
+        - $ref: '#/components/parameters/CallIdParam'
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/VADEvent'
+              $ref: '#/components/schemas/TranscriptSummaryRequest'
       responses:
-        '200':
-          description: Event published to Pub/Sub topic
+        '201':
+          description: Transcript summary saved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TranscriptSummaryResponse'
+        '400':
+          description: Bad request
+        '404':
+          $ref: '#/components/responses/NotFound'
 
-  /events/agent-turn:
-    post:
-      summary: Agent Turn Event (Pub/Sub)
-      description: |
-        **This is a Pub/Sub event, not a REST endpoint**
-        
-        Published to topic: `kaigo-calls-analytics-{environment}-agent-turns`
-        
-        Complete conversation turns with performance metrics including LLM latency,
-        TTS processing time, and tool call details.
+  /api/v1/ambios/calls/{call_id}/transcript:
+    get:
+      summary: Get Call Transcript
+      description: Retrieve complete transcript for a call (Demo - No Auth Required)
       tags:
-        - Event Streaming
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/AgentTurnEvent'
+        - Calls
+      parameters:
+        - $ref: '#/components/parameters/CallIdParam'
+        - name: include_summary
+          in: query
+          schema:
+            type: boolean
+            default: true
+        - name: format
+          in: query
+          schema:
+            type: string
+            enum: [segments, full_text, nurse_notes_only]
+            default: segments
       responses:
         '200':
-          description: Event published to Pub/Sub topic
-
-  /events/interruption:
-    post:
-      summary: Interruption Event (Pub/Sub)
-      description: |
-        **This is a Pub/Sub event, not a REST endpoint**
-        
-        Published to topic: `kaigo-calls-analytics-{environment}-interruptions`
-        
-        User interruption/barge-in events with resume strategy tracking.
-        Critical for measuring conversation naturalness and agent responsiveness.
-      tags:
-        - Event Streaming
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/InterruptionEvent'
-      responses:
-        '200':
-          description: Event published to Pub/Sub topic
-
-  /events/error:
-    post:
-      summary: Error Event (Pub/Sub)
-      description: |
-        **This is a Pub/Sub event, not a REST endpoint**
-        
-        Published to topic: `kaigo-calls-analytics-{environment}-errors`
-        
-        Error events with severity levels and recovery strategies.
-        Includes ASR timeouts, TTS failures, LLM errors, and network issues.
-      tags:
-        - Event Streaming
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/CallErrorEvent'
-      responses:
-        '200':
-          description: Event published to Pub/Sub topic
-
-  /events/metrics:
-    post:
-      summary: Call Metrics Event (Pub/Sub)
-      description: |
-        **This is a Pub/Sub event, not a REST endpoint**
-        
-        Published to topic: `kaigo-calls-analytics-{environment}-metrics`
-        
-        Periodic call metrics published every 30 seconds during active calls.
-        Includes turn counts, response times, interruptions, and confidence scores.
-      tags:
-        - Event Streaming
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/CallMetricsEvent'
-      responses:
-        '200':
-          description: Event published to Pub/Sub topic
+          description: Transcript retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TranscriptResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
 
 components:
   securitySchemes:
@@ -1305,487 +1248,252 @@ components:
           type: string
           format: date-time
 
-    # ===============================================
-    # Pub/Sub Event Streaming Schemas (Priority: HIGH)
-    # ===============================================
-    # Streams fine-grained call events for quality evaluation and analytics
-    # Technology: Google Cloud Pub/Sub
-    # Topics: kaigo-calls-analytics-{environment}-{event_type}
-    
-    CloudEventEnvelope:
+    # Transcript streaming schemas
+    TranscriptStreamRequest:
       type: object
-      description: Cloud Events v1.0 specification envelope for all Pub/Sub messages
       required:
-        - specversion
-        - type
-        - source
-        - id
-        - time
-        - datacontenttype
-        - subject
-        - data
+        - call_sid
+        - timestamp
+        - speaker
+        - text
+        - segment_id
       properties:
-        specversion:
+        call_sid:
           type: string
-          enum: ["1.0"]
-          description: Cloud Events specification version
-        type:
-          type: string
-          pattern: '^com\.kaigo\.call\.\w+$'
-          description: Event type identifier
-        source:
-          type: string
-          enum: [ambi-voice-agent]
-          description: Event source system
-        id:
+        patient_id:
           type: string
           format: uuid
-          description: Unique event identifier
-        time:
+        timestamp:
           type: string
           format: date-time
-          description: Event timestamp in ISO 8601 format
-        datacontenttype:
+        speaker:
           type: string
-          enum: [application/json]
-        subject:
+          enum: [patient, agent]
+        text:
           type: string
-          pattern: '^call/\w+$'
-          description: Call subject identifier
-        data:
-          type: object
-          description: Event-specific data payload
+          maxLength: 1000
+        confidence:
+          type: number
+          minimum: 0.0
+          maximum: 1.0
+        segment_id:
+          type: integer
+        turn_number:
+          type: integer
+        partial:
+          type: boolean
+          default: false
+          description: True if this is a partial/interim transcript
 
-    ASRSegmentEvent:
+    TranscriptStreamResponse:
       type: object
-      description: Automatic Speech Recognition segment event
-      allOf:
-        - $ref: '#/components/schemas/CloudEventEnvelope'
-        - type: object
-          properties:
-            type:
-              type: string
-              enum: [com.kaigo.call.asr_segment]
-            data:
-              type: object
-              required:
-                - call_sid
-                - patient_id
-                - segment_index
-                - start_ms
-                - end_ms
-                - text
-                - confidence
-                - is_final
-                - speaker
-                - language
-              properties:
-                call_sid:
-                  type: string
-                  description: Twilio call identifier
-                patient_id:
-                  type: string
-                  format: uuid
-                segment_index:
-                  type: integer
-                  description: Sequential index of the segment
-                start_ms:
-                  type: integer
-                  description: Start time in milliseconds from call start
-                end_ms:
-                  type: integer
-                  description: End time in milliseconds from call start
-                text:
-                  type: string
-                  description: Transcribed text content
-                confidence:
-                  type: number
-                  format: float
-                  minimum: 0
-                  maximum: 1
-                  description: ASR confidence score
-                is_final:
-                  type: boolean
-                  description: Whether this is a final or interim result
-                speaker:
-                  type: string
-                  enum: [user, agent]
-                language:
-                  type: string
-                  description: Language code (e.g., en-US)
-
-    VADEvent:
-      type: object
-      description: Voice Activity Detection event
-      allOf:
-        - $ref: '#/components/schemas/CloudEventEnvelope'
-        - type: object
-          properties:
-            type:
-              type: string
-              enum: [com.kaigo.call.vad_event]
-            data:
-              type: object
-              required:
-                - call_sid
-                - patient_id
-                - event
-                - timestamp_ms
-                - duration_ms
-                - energy_level
-                - speaker
-              properties:
-                call_sid:
-                  type: string
-                patient_id:
-                  type: string
-                  format: uuid
-                event:
-                  type: string
-                  enum: [speech_start, speech_end, silence_detected]
-                  description: Type of VAD event
-                timestamp_ms:
-                  type: integer
-                  description: Event timestamp in milliseconds
-                duration_ms:
-                  type: integer
-                  description: Duration of the event in milliseconds
-                energy_level:
-                  type: number
-                  format: float
-                  minimum: 0
-                  maximum: 1
-                  description: Audio energy level
-                speaker:
-                  type: string
-                  enum: [user, agent]
-
-    AgentTurnEvent:
-      type: object
-      description: Complete agent-user conversation turn
-      allOf:
-        - $ref: '#/components/schemas/CloudEventEnvelope'
-        - type: object
-          properties:
-            type:
-              type: string
-              enum: [com.kaigo.call.agent_turn]
-            data:
-              type: object
-              required:
-                - call_sid
-                - patient_id
-                - turn_index
-                - user_text
-                - agent_text
-                - started_at
-                - ended_at
-                - llm_model
-                - llm_latency_ms
-                - llm_tokens
-                - tts_model
-                - tts_latency_ms
-              properties:
-                call_sid:
-                  type: string
-                patient_id:
-                  type: string
-                  format: uuid
-                turn_index:
-                  type: integer
-                  description: Sequential index of the conversation turn
-                user_text:
-                  type: string
-                  description: User's utterance text
-                agent_text:
-                  type: string
-                  description: Agent's response text
-                started_at:
-                  type: string
-                  format: date-time
-                ended_at:
-                  type: string
-                  format: date-time
-                llm_model:
-                  type: string
-                  description: LLM model used (e.g., claude-opus-4-1)
-                llm_latency_ms:
-                  type: integer
-                  description: LLM response time in milliseconds
-                llm_tokens:
-                  type: object
-                  properties:
-                    prompt:
-                      type: integer
-                      description: Number of prompt tokens
-                    completion:
-                      type: integer
-                      description: Number of completion tokens
-                tts_model:
-                  type: string
-                  description: TTS model used (e.g., elevenlabs-v2)
-                tts_latency_ms:
-                  type: integer
-                  description: TTS generation time in milliseconds
-                tool_calls:
-                  type: array
-                  description: External API calls made during this turn
-                  items:
-                    type: object
-                    properties:
-                      tool:
-                        type: string
-                        description: Tool/API name
-                      latency_ms:
-                        type: integer
-                      success:
-                        type: boolean
-
-    InterruptionEvent:
-      type: object
-      description: User interruption/barge-in event
-      allOf:
-        - $ref: '#/components/schemas/CloudEventEnvelope'
-        - type: object
-          properties:
-            type:
-              type: string
-              enum: [com.kaigo.call.interruption]
-            data:
-              type: object
-              required:
-                - call_sid
-                - patient_id
-                - interruption_type
-                - timestamp_ms
-                - agent_text_interrupted
-                - user_started_speaking_ms
-                - resume_strategy
-              properties:
-                call_sid:
-                  type: string
-                patient_id:
-                  type: string
-                  format: uuid
-                interruption_type:
-                  type: string
-                  enum: [barge_in, overlap, false_positive]
-                timestamp_ms:
-                  type: integer
-                  description: Interruption timestamp in milliseconds
-                agent_text_interrupted:
-                  type: string
-                  description: Agent text that was interrupted
-                user_started_speaking_ms:
-                  type: integer
-                  description: When user started speaking
-                resume_strategy:
-                  type: string
-                  enum: [acknowledge_and_continue, restart, skip]
-                  description: How the agent resumed after interruption
-
-    CallErrorEvent:
-      type: object
-      description: Error event during call processing
-      allOf:
-        - $ref: '#/components/schemas/CloudEventEnvelope'
-        - type: object
-          properties:
-            type:
-              type: string
-              enum: [com.kaigo.call.error]
-            data:
-              type: object
-              required:
-                - call_sid
-                - patient_id
-                - error_code
-                - error_message
-                - severity
-                - recovery_action
-              properties:
-                call_sid:
-                  type: string
-                patient_id:
-                  type: string
-                  format: uuid
-                error_code:
-                  type: string
-                  enum: [ASR_TIMEOUT, TTS_FAILURE, LLM_ERROR, API_ERROR, NETWORK_ERROR]
-                error_message:
-                  type: string
-                severity:
-                  type: string
-                  enum: [warning, error, critical]
-                recovery_action:
-                  type: string
-                  enum: [retry, prompt_user, escalate, terminate]
-                context:
-                  type: object
-                  description: Additional error context
-                  properties:
-                    last_interaction_ms:
-                      type: integer
-                    retry_count:
-                      type: integer
-                    error_details:
-                      type: string
-
-    CallMetricsEvent:
-      type: object
-      description: Periodic call metrics (published every 30 seconds)
-      allOf:
-        - $ref: '#/components/schemas/CloudEventEnvelope'
-        - type: object
-          properties:
-            type:
-              type: string
-              enum: [com.kaigo.call.metrics]
-            data:
-              type: object
-              required:
-                - call_sid
-                - patient_id
-                - interval_start
-                - interval_end
-                - metrics
-              properties:
-                call_sid:
-                  type: string
-                patient_id:
-                  type: string
-                  format: uuid
-                interval_start:
-                  type: string
-                  format: date-time
-                interval_end:
-                  type: string
-                  format: date-time
-                metrics:
-                  type: object
-                  properties:
-                    total_duration_ms:
-                      type: integer
-                      description: Total duration of interval in milliseconds
-                    turns_in_interval:
-                      type: integer
-                      description: Number of conversation turns
-                    avg_response_time_ms:
-                      type: integer
-                      description: Average agent response time
-                    interruption_count:
-                      type: integer
-                      description: Number of interruptions
-                    error_count:
-                      type: integer
-                      description: Number of errors
-                    asr_confidence_avg:
-                      type: number
-                      format: float
-                      description: Average ASR confidence score
-                    silence_duration_ms:
-                      type: integer
-                      description: Total silence duration
-
-    PubSubConfiguration:
-      type: object
-      description: Pub/Sub topic and subscription configuration
       properties:
-        topics:
-          type: object
-          properties:
-            pattern:
-              type: string
-              example: kaigo-calls-analytics-{environment}-{event_type}
-            examples:
-              type: array
-              items:
-                type: string
-              example:
-                - kaigo-calls-analytics-prod-asr-segments
-                - kaigo-calls-analytics-prod-agent-turns
-                - kaigo-calls-analytics-prod-vad-events
-                - kaigo-calls-analytics-prod-errors
-                - kaigo-calls-analytics-prod-metrics
-        message_attributes:
-          type: object
-          description: Attributes for message filtering
-          properties:
-            call_sid:
-              type: string
-              description: Twilio call identifier
-            patient_id:
-              type: string
-              description: Patient UUID
-            event_type:
-              type: string
-              description: Type of event
-            timestamp:
-              type: string
-              description: ISO 8601 timestamp
-            environment:
-              type: string
-              enum: [prod, staging, dev]
-        subscriptions:
+        segment_id:
+          type: integer
+        call_id:
+          type: string
+          format: uuid
+        recorded_at:
+          type: string
+          format: date-time
+        status:
+          type: string
+          enum: [recorded]
+
+    TranscriptSummaryRequest:
+      type: object
+      required:
+        - patient_id
+        - call_sid
+        - call_timestamp
+        - call_duration_seconds
+        - transcript_segments
+        - nurse_notes
+      properties:
+        patient_id:
+          type: string
+          format: uuid
+        call_sid:
+          type: string
+        call_id:
+          type: string
+          format: uuid
+        call_timestamp:
+          type: string
+          format: date-time
+        call_duration_seconds:
+          type: integer
+        patient_verified:
+          type: boolean
+        transcript_segments:
           type: array
           items:
             type: object
             properties:
-              name:
+              timestamp:
                 type: string
-              purpose:
+                format: date-time
+              speaker:
                 type: string
-              filter:
+                enum: [patient, agent]
+              text:
                 type: string
-              ack_deadline_seconds:
+              confidence:
+                type: number
+              segment_id:
                 type: integer
-          example:
-            - name: kaigo-calls-monitoring-sub
-              purpose: Real-time monitoring dashboard
-              filter: High-priority events (errors, interruptions)
-              ack_deadline_seconds: 10
-            - name: kaigo-calls-storage-sub
-              purpose: Data lake storage
-              filter: No filter (all events)
-              ack_deadline_seconds: 60
-            - name: kaigo-calls-analytics-sub
-              purpose: Analytics pipeline
-              filter: Completed turns and metrics
-              ack_deadline_seconds: 30
-            - name: kaigo-calls-alerts-sub
-              purpose: Alerting system
-              filter: attributes.severity="critical"
-              ack_deadline_seconds: 10
-        settings:
+              turn_number:
+                type: integer
+        transcript_full_text:
+          type: string
+          description: Complete transcript as formatted text
+        nurse_notes:
+          $ref: '#/components/schemas/NurseNotes'
+        ai_metadata:
           type: object
           properties:
-            message_retention_days:
-              type: integer
-              example: 7
-            message_ordering:
-              type: object
-              properties:
-                enabled:
-                  type: boolean
-                  example: true
-                ordering_key:
-                  type: string
-                  example: call_sid
-            retry_policy:
-              type: object
-              properties:
-                minimum_backoff_seconds:
-                  type: integer
-                  example: 10
-                maximum_backoff_seconds:
-                  type: integer
-                  example: 600
-            dead_letter_topic:
+            model_used:
               type: string
-              example: kaigo-calls-analytics-dlq
-            max_delivery_attempts:
+            processing_time_ms:
               type: integer
-              example: 5
+            confidence_scores:
+              type: object
+              additionalProperties: true
+
+    NurseNotes:
+      type: object
+      properties:
+        clinical_summary:
+          type: string
+          maxLength: 2000
+          description: High-level clinical summary for provider review
+        key_findings:
+          type: array
+          items:
+            type: string
+          description: Important clinical findings from the call
+        action_items:
+          type: array
+          items:
+            type: object
+            properties:
+              action:
+                type: string
+              priority:
+                type: string
+                enum: [low, medium, high, critical]
+              due_date:
+                type: string
+                format: date
+              assigned_to:
+                type: string
+                enum: [provider, care_coordinator, patient]
+        alerts_flagged:
+          type: array
+          items:
+            type: object
+            properties:
+              type:
+                type: string
+                enum: [vital_abnormal, medication_concern, symptom_worsening, adherence_issue]
+              severity:
+                type: string
+                enum: [low, medium, high, critical]
+              value:
+                type: string
+              recommendation:
+                type: string
+        patient_engagement:
+          type: object
+          properties:
+            cooperation_level:
+              type: string
+              enum: [excellent, good, fair, poor]
+            understanding_level:
+              type: string
+              enum: [excellent, good, needs_clarification, concerning]
+            mood_assessment:
+              type: string
+            communication_notes:
+              type: string
+        next_contact_recommended:
+          type: string
+          format: date
+        follow_up_instructions:
+          type: string
+
+    TranscriptSummaryResponse:
+      type: object
+      properties:
+        transcript_id:
+          type: string
+          format: uuid
+        call_id:
+          type: string
+          format: uuid
+        patient_id:
+          type: string
+          format: uuid
+        created_at:
+          type: string
+          format: date-time
+        status:
+          type: string
+          enum: [created]
+        nurse_notes_generated:
+          type: boolean
+        segments_count:
+          type: integer
+        
+    TranscriptResponse:
+      type: object
+      properties:
+        transcript_id:
+          type: string
+          format: uuid
+        call_id:
+          type: string
+          format: uuid
+        patient_id:
+          type: string
+          format: uuid
+        call_metadata:
+          type: object
+          properties:
+            call_timestamp:
+              type: string
+              format: date-time
+            duration_seconds:
+              type: integer
+            patient_verified:
+              type: boolean
+        transcript_segments:
+          type: array
+          items:
+            type: object
+            properties:
+              timestamp:
+                type: string
+                format: date-time
+              speaker:
+                type: string
+                enum: [patient, agent]
+              text:
+                type: string
+              confidence:
+                type: number
+              segment_id:
+                type: integer
+        transcript_full_text:
+          type: string
+        nurse_notes:
+          $ref: '#/components/schemas/NurseNotes'
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
 
     ErrorResponse:
       type: object
